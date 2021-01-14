@@ -892,9 +892,20 @@ sub decode_produce_response {
     my $is_v1 = $api_version == 1;
     my $is_v2 = $api_version == 2;
 
-    my @data = unpack(   $is_v1 ? $_decode_produce_response_template_v1
-                       : $is_v2 ? $_decode_produce_response_template_v2
-                       :          $_decode_produce_response_template, $$bin_stream_ref );
+    my @data = eval {
+        use warnings FATAL => 'all';
+        unpack(   $is_v1 ? $_decode_produce_response_template_v1
+                : $is_v2 ? $_decode_produce_response_template_v2
+                :          $_decode_produce_response_template, $$bin_stream_ref );
+    };
+    if ($@) {
+        use Carp 'cluck';
+        cluck $@;
+        warn "Response we tried to unpack (v$api_version): ".join(" " , unpack "(H2)*", $$bin_stream_ref);
+        # stop memory leak
+        $data[1] = 1;
+        splice @data, 8;
+    }
 
     my $i = 0;
     my $Produce_Response = {};
